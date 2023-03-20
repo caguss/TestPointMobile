@@ -48,7 +48,7 @@
   <ItemGroup>
     <Reference Include="Mono.Android" />
     <Reference Include="PointMobileLibrary">
-      <HintPath>C:\Users\dipsy\Desktop\작업장\PointMobileLibrary.dll</HintPath>
+      <HintPath>.\PointMobileLibrary.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
