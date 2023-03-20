@@ -6,6 +6,7 @@ using Xamarin.Forms;
 using Device.Sdk;
 using Device.Common;
 using System.Linq;
+using Android.OS;
 
 //using  device.common.DecodeResult;
 //using device.common.DecodeStateCallback;
@@ -19,44 +20,46 @@ namespace TestPointMobile.Droid {
     public class Scan_PointMobile : IScanner_PointMobile {
 
         #region 바코드
-            #region Broadcast Intents
-            // 스캐너 활성화/비활성화
-            private const String SCANNER_ENABLED_SCANNER = "device.common.ENABLED_SCANNER";
-            //트리거를 통해 실행 가능/불가능 설정
-            private const String SCANNER_ENABLED_TRIGGER = "device.common.ENABLED_TRIGGER";
-            //화면내 스캔 버튼 활성화/비활성화
-            private const String SCANNER_ENABLED_TOUCHSCAN = "device.common.ENABLED_TOUCHSCAN";
-            //Touchscan 버튼 설정의 현재 상태 확인
-            private const String SCANNER_READ_TOUCHSCAN_STATE = "device.common.READ_TOUCHSCAN_STATE";
-            #endregion
+        #region Broadcast Intents
+        // 스캐너 활성화/비활성화
+        private const String SCANNER_ENABLED_SCANNER = "device.common.ENABLED_SCANNER";
+        //트리거를 통해 실행 가능/불가능 설정
+        private const String SCANNER_ENABLED_TRIGGER = "device.common.ENABLED_TRIGGER";
+        //화면내 스캔 버튼 활성화/비활성화
+        private const String SCANNER_ENABLED_TOUCHSCAN = "device.common.ENABLED_TOUCHSCAN";
+        //Touchscan 버튼 설정의 현재 상태 확인
+        private const String SCANNER_READ_TOUCHSCAN_STATE = "device.common.READ_TOUCHSCAN_STATE";
+        #endregion
 
-            #region onReceive Intents
-            //Barcode Decode 완료 후 실패/성공에 대한 결과값만 전달
-            private const String SCANNER_USERMSG = "device.common.USERMSG";
-            //Barcode Decode 완료 후 실패/성공에 대한 결과와 세부 데이터를 함께 전달
-            private const String SCANNER_EVENT = "device.scanner.EVENT";
-            //Touchscan 버튼의 활성화/비활성화 상태에 대한 인텐트
-            private const String SCANNER_STATE_TOUCHSCAN = "device.common.SCANNER_STATE_TOUCHSCAN";
+        #region onReceive Intents
+        //Barcode Decode 완료 후 실패/성공에 대한 결과값만 전달
+        private const String SCANNER_USERMSG = "device.common.USERMSG";
+        //Barcode Decode 완료 후 실패/성공에 대한 결과와 세부 데이터를 함께 전달
+        private const String SCANNER_EVENT = "device.scanner.EVENT";
+        //Touchscan 버튼의 활성화/비활성화 상태에 대한 인텐트
+        private const String SCANNER_STATE_TOUCHSCAN = "device.common.SCANNER_STATE_TOUCHSCAN";
         #endregion
         #endregion
 
-
-        private static ScanManager mScanner;
-        private static DecodeResult mDecodeResult;
-        private bool mKeyLock = false;
-
-        private Context mContext;
+        private DecodeStateCallback mStateCallback;
+        private static ScanManager mScanner = new ScanManager();
+        private static DecodeResult mDecodeResult = new DecodeResult();
         private static ScanResultReceiver mScanResultReceiver = new ScanResultReceiver();
+        private static Handler mHandler = new Handler();
+        private int mBackupResultType = ScanConst.ResultType.DcdResultCopypaste;
 
-        public void RegisterReceiver()
-        {
+        public void RegisterReceiver() {
+            if (mScanner != null) {
+                mScanner.ARegisterDecodeStateCallback(mStateCallback);
+                mBackupResultType = mScanner.ADecodeGetResultType();
+                mScanner.ADecodeSetResultType(ScanConst.ResultType.DcdResultUsermsg);
+            }
+
             mScanResultReceiver = new ScanResultReceiver();
             // for getting decoding result and setParam, getParam result.
             IntentFilter filter = new IntentFilter();
-
             filter = new IntentFilter();
-            filter.AddAction(ScanConst.EnabledScannerAction);
-            Android.App.Application.Context.RegisterReceiver(mScanResultReceiver, filter);
+            //filter.AddAction(ScanConst.EnabledScannerAction);
 
             filter.AddAction(ScanConst.IntentUsermsg);
             filter.AddAction(ScanConst.IntentEvent);
@@ -64,41 +67,17 @@ namespace TestPointMobile.Droid {
 
         }
 
-        public void UnregisterReceiver()
-        {
+        public void UnregisterReceiver() {
             Android.App.Application.Context.UnregisterReceiver(mScanResultReceiver);
         }
 
 
-        //[IntentFilter(new[] { "com.android.server.scannerservice" })]
+
+        [IntentFilter(new[] { "device.common.USERMSG", "device.scanner.EVENT" })]
         [BroadcastReceiver(Enabled = true)]
-        public class ScanResultReceiver : BroadcastReceiver
-        {
-            private String barcode;
+        public class ScanResultReceiver : BroadcastReceiver {
             private String type;
             private App scanApp = new App();
-
-            //public override void OnReceive(Context context, Intent intent)
-            //{
-            //    if (intent.Action.Equals(SCANNER_ACTION_BARCODE))
-            //    {
-            //        barcode = intent.GetStringExtra(SCANNER_EXTRA_BARCODE_DATA);
-            //        if (barcode != null)
-            //        {
-            //            // Send Barcode Data
-            //            type = intent.GetStringExtra(SCANNER_EXTRA_BARCODE_CODE_TYPE);
-            //            string data = string.Format("{0},{1}", barcode, type);
-            //            MessagingCenter.Send<App, string>(scanApp, "barcode", data.Split(',')[0]);
-            //        }
-            //        else
-            //        {
-            //            // Send Parameter data
-            //            int nValue = intent.GetIntExtra("value", -1);
-            //            MessagingCenter.Send<App, int>(scanApp, "value", nValue);
-            //        }
-            //    }
-            //}
-
 
             public override void OnReceive(Context context, Intent intent) {
                 if (mScanner != null) {
@@ -106,7 +85,7 @@ namespace TestPointMobile.Droid {
                         if (ScanConst.IntentUsermsg.Equals(intent.Action)) {
                             mScanner.ADecodeGetResult(mDecodeResult.Recycle());
 
-                            string data = string.Format("{0},{1}", mDecodeResult.SymName, mDecodeResult.ToString());
+                            string data = string.Format("{0},{1}",  mDecodeResult.ToString(), mDecodeResult.SymName);
                             MessagingCenter.Send<App, string>(scanApp, "barcode", data);
                         }
                         else if (ScanConst.IntentEvent.Equals(intent.Action)) {
@@ -144,8 +123,6 @@ namespace TestPointMobile.Droid {
                     }
                 }
             }
-
-
         }
     }
 }

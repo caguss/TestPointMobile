@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" android:versionCode="1" android:versionName="1.0" package="com.companyname.testpointmobile">
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="33" />
-    <application android:label="TestPointMobile.Android" android:theme="@style/MainTheme"></application>
+    <application android:label="TestPointMobile.Android" android:theme="@style/MainTheme">
+		<receiver android:enabled="false" android:name="crc649c5d62591a250814.Scan_PointMobile_ScanResultReceiver" android:exported="false">
+			<intent-filter>
+				<action android:name="device.common" />
+				<action android:name="device.scanner" />
+			</intent-filter>
+		</receiver>
+	</application>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 </manifest>
